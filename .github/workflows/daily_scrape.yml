@@ -1,0 +1,40 @@
+name: Daily job scraper
+
+on:
+  schedule:
+    # 9:00 AM London time (BST = UTC+1, so 08:00 UTC in summer)
+    - cron: "0 8 * * 1-5"   # weekdays only — no point running weekends
+  workflow_dispatch:          # lets you trigger it manually from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    # Read-only: results are published as a build artifact, not committed to the
+    # repo, so the scraped job data never becomes part of this public repository.
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        env:
+          ADZUNA_APP_ID:  ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          REED_API_KEY:   ${{ secrets.REED_API_KEY }}
+        run: python scraper.py
+
+      - name: Upload tracker as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-tracker-${{ github.run_id }}
+          path: job_tracker.xlsx
+          if-no-files-found: warn
+          retention-days: 30
